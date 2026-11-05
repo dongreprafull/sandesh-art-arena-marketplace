@@ -2,7 +2,10 @@
 require_once __DIR__ . '/config.php';
 $pdo = db();
 $id = (int) ($_GET['id'] ?? 0);
-$stmt = $pdo->prepare("SELECT * FROM products WHERE id = ? AND is_active = 1");
+$stmt = $pdo->prepare("
+  SELECT p.*, v.business_name FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id
+  WHERE p.id = ? AND p.is_active = 1 AND (p.vendor_id IS NULL OR v.status = 'approved')
+");
 $stmt->execute([$id]);
 $p = $stmt->fetch();
 
@@ -31,11 +34,12 @@ include __DIR__ . '/includes/header.php';
   <?php if ($added): ?><div class="flash ok">Added to cart. <a href="/cart.php">View Cart →</a></div><?php endif; ?>
   <div class="product-detail">
     <div>
-      <?php if ($p['image']): ?><img src="<?= e($p['image']) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
+      <?php if ($p['image']): ?><img src="<?= e(img_url($p['image'])) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
     </div>
     <div>
       <span class="tag"><?= e($p['category']) ?></span>
       <h1><?= e($p['title']) ?></h1>
+      <p class="muted">Sold by <?= e($p['business_name'] ?? 'Sandesh Art Arena') ?></p>
       <p class="price">₹<?= number_format((float) $p['price'], 2) ?></p>
       <p><?= nl2br(e($p['description'] ?? '')) ?></p>
       <?php if ($p['stock_qty'] > 0): ?>

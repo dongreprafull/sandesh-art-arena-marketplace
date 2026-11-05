@@ -2,7 +2,11 @@
 require_once __DIR__ . '/config.php';
 $pageTitle = 'Home';
 $s = msettings();
-$featured = db()->query("SELECT * FROM products WHERE is_active = 1 ORDER BY sort_order DESC, id DESC LIMIT 4")->fetchAll();
+$featured = db()->query("
+  SELECT p.* FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id
+  WHERE p.is_active = 1 AND (p.vendor_id IS NULL OR v.status = 'approved')
+  ORDER BY p.sort_order DESC, p.id DESC LIMIT 4
+")->fetchAll();
 include __DIR__ . '/includes/header.php';
 ?>
 <section class="page-hero">
@@ -18,7 +22,7 @@ include __DIR__ . '/includes/header.php';
     <?php foreach ($featured as $p): ?>
       <div class="product-card">
         <a href="/product.php?id=<?= (int) $p['id'] ?>">
-          <?php if ($p['image']): ?><img src="<?= e($p['image']) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
+          <?php if ($p['image']): ?><img src="<?= e(img_url($p['image'])) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
         </a>
         <div class="product-body">
           <span class="tag"><?= e($p['category']) ?></span>

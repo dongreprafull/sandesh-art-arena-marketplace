@@ -43,6 +43,10 @@ function nav_is_active(string $href, string $current, string $table = ''): bool 
     <p class="admin-side-group">Catalog</p>
     <a href="content.php?table=products" class="<?= nav_is_active('', $current, 'products') ? 'active' : '' ?>">Products</a>
 
+    <p class="admin-side-group">Vendors</p>
+    <a href="vendors.php" class="<?= nav_is_active('vendors.php', $current) ? 'active' : '' ?>">Vendors</a>
+    <a href="settlements.php" class="<?= nav_is_active('settlements.php', $current) ? 'active' : '' ?>">Settlements</a>
+
     <p class="admin-side-group">Settings</p>
     <a href="settings.php" class="<?= nav_is_active('settings.php', $current) ? 'active' : '' ?>">Store Settings</a>
   </aside>

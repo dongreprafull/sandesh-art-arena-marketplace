@@ -75,6 +75,11 @@ form.site-form button{align-self:flex-start;border:0;cursor:pointer}
 .status-paid,.status-confirmed,.status-delivered{background:#e4f3ef;color:#1d6b5a}
 .status-failed,.status-cancelled{background:#fdeceb;color:#9b2d22}
 .status-cod_pending,.status-shipped{background:#e6e8fb;color:#302478}
+.status-approved{background:#e4f3ef;color:#1d6b5a}
+.status-rejected{background:#fdeceb;color:#9b2d22}
+
+/* ----- vendor forms: small helper text under file inputs ----- */
+.admin-form .doc-link{font-size:.8rem;color:#302478;font-weight:600}
 
 /* ----- content form ----- */
 .admin-form{display:flex;flex-direction:column;gap:.9rem;max-width:620px;background:#fff;border:1px solid var(--line, rgba(23,24,32,.12));border-radius:10px;padding:1.4rem}

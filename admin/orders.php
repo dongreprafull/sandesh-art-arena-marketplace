@@ -34,7 +34,7 @@ if ($id) {
         require_once __DIR__ . '/includes/admin_footer.php';
         exit;
     }
-    $stmt = $pdo->prepare("SELECT * FROM order_items WHERE order_id = ?");
+    $stmt = $pdo->prepare("SELECT oi.*, v.business_name FROM order_items oi LEFT JOIN vendors v ON v.id = oi.vendor_id WHERE oi.order_id = ?");
     $stmt->execute([$id]);
     $items = $stmt->fetchAll();
     ?>
@@ -59,17 +59,20 @@ if ($id) {
     </div>
 
     <table class="admin-table" style="margin-top:1rem">
-      <thead><tr><th>Item</th><th>Price</th><th>Qty</th><th>Subtotal</th></tr></thead>
+      <thead><tr><th>Item</th><th>Sold By</th><th>Price</th><th>Qty</th><th>Subtotal</th><th>Commission</th><th>Vendor Share</th></tr></thead>
       <tbody>
         <?php foreach ($items as $it): ?>
           <tr>
             <td><?= e($it['title']) ?></td>
+            <td><?= e($it['business_name'] ?? 'Sandesh Art Arena (Store)') ?></td>
             <td>₹<?= number_format((float) $it['price'], 2) ?></td>
             <td><?= (int) $it['qty'] ?></td>
             <td>₹<?= number_format((float) $it['price'] * $it['qty'], 2) ?></td>
+            <td><?= $it['commission_amount'] !== null ? '₹' . number_format((float) $it['commission_amount'], 2) . ' (' . e((string) $it['commission_pct']) . '%)' : '—' ?></td>
+            <td><?= $it['vendor_amount'] !== null ? '₹' . number_format((float) $it['vendor_amount'], 2) : '—' ?></td>
           </tr>
         <?php endforeach; ?>
-        <tr><td colspan="3" style="text-align:right;font-weight:700">Total</td><td style="font-weight:700">₹<?= number_format((float) $order['total_amount'], 2) ?></td></tr>
+        <tr><td colspan="4" style="text-align:right;font-weight:700">Total</td><td style="font-weight:700" colspan="3">₹<?= number_format((float) $order['total_amount'], 2) ?></td></tr>
       </tbody>
     </table>
 

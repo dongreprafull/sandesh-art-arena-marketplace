@@ -60,7 +60,7 @@ function current_user(): ?array {
     if (!is_logged_in()) return null;
     static $u = null;
     if ($u === null) {
-        $stmt = db()->prepare('SELECT id, name, email, role, is_admin FROM users WHERE id = ?');
+        $stmt = db()->prepare('SELECT id, name, email, phone, role, is_admin FROM users WHERE id = ?');
         $stmt->execute([$_SESSION['user_id']]);
         $u = $stmt->fetch() ?: null;
     }
@@ -74,6 +74,101 @@ function msettings(): array {
         $s = db()->query("SELECT * FROM marketplace_settings WHERE id = 1")->fetch() ?: [];
     }
     return $s;
+}
+
+/**
+ * Handles an optional image file upload for a form field.
+ * Returns the stored relative path (e.g. "uploads/products/img_xxx.jpg"), or keeps
+ * $existing unchanged if no new valid file was uploaded (so edits don't wipe the image).
+ */
+function handle_upload(string $field, ?string $existing, string $subdir = 'uploads/products'): ?string {
+    if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+        return $existing;
+    }
+    if ($_FILES[$field]['error'] !== UPLOAD_ERR_OK) {
+        return $existing;
+    }
+    $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+    $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowed, true)) {
+        return $existing;
+    }
+    $dir = __DIR__ . '/' . $subdir;
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $name = 'img_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $name)) {
+        return $existing;
+    }
+    return $subdir . '/' . $name;
+}
+
+/** Same as handle_upload() but also allows PDFs, for KYC/ID documents. */
+function handle_doc_upload(string $field, ?string $existing, string $subdir = 'uploads/vendor_docs'): ?string {
+    if (empty($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+        return $existing;
+    }
+    if ($_FILES[$field]['error'] !== UPLOAD_ERR_OK) {
+        return $existing;
+    }
+    $allowed = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+    $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowed, true)) {
+        return $existing;
+    }
+    $dir = __DIR__ . '/' . $subdir;
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $name = 'doc_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!move_uploaded_file($_FILES[$field]['tmp_name'], $dir . '/' . $name)) {
+        return $existing;
+    }
+    return $subdir . '/' . $name;
+}
+
+/** The vendor profile row for the logged-in user, or null if not a vendor. */
+function current_vendor(): ?array {
+    if (!is_logged_in()) return null;
+    static $v = null;
+    static $loaded = false;
+    if (!$loaded) {
+        $stmt = db()->prepare('SELECT * FROM vendors WHERE user_id = ?');
+        $stmt->execute([$_SESSION['user_id']]);
+        $v = $stmt->fetch() ?: null;
+        $loaded = true;
+    }
+    return $v;
+}
+
+function is_vendor(): bool {
+    return current_vendor() !== null;
+}
+
+function require_vendor(): array {
+    $v = current_vendor();
+    if (!$v) {
+        header('Location: /vendor/login.php');
+        exit;
+    }
+    return $v;
+}
+
+/** Renders a stored image path correctly whether it's an old full URL or a new relative upload path. */
+function img_url(?string $path): string {
+    if (!$path) return '';
+    if (preg_match('#^https?://#i', $path)) return $path;
+    return '/' . ltrim($path, '/');
+}
+
+/** Commission % that applies to a given vendor row (its own override, else the store default). */
+function vendor_commission_pct(array $vendor): float {
+    if ($vendor['commission_pct'] !== null) {
+        return (float) $vendor['commission_pct'];
+    }
+    $s = msettings();
+    return (float) ($s['default_commission_pct'] ?? 10);
 }
 
 /** Cart lives in the shared session under its own key, so it never collides with login/other portals. */

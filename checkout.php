@@ -13,9 +13,14 @@ if (!$c) {
 
 $ids = array_map('intval', array_keys($c));
 $placeholders = implode(',', array_fill(0, count($ids), '?'));
-$stmt = $pdo->prepare("SELECT * FROM products WHERE id IN ($placeholders)");
+$stmt = $pdo->prepare("
+  SELECT p.*, v.id AS v_id, v.commission_pct AS v_commission_pct FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id
+  WHERE p.id IN ($placeholders) AND p.is_active = 1 AND (p.vendor_id IS NULL OR v.status = 'approved')
+");
 $stmt->execute($ids);
 $cartProducts = $stmt->fetchAll();
+
+$loggedInUser = current_user();
 
 $items = [];
 $total = 0.0;
@@ -50,13 +55,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['step'] ?? '') === 'place')
     } else {
         $pdo->beginTransaction();
         $paymentStatus = $method === 'cod' ? 'cod_pending' : 'pending';
-        $stmt = $pdo->prepare("INSERT INTO orders (buyer_name, buyer_email, buyer_phone, address, city, pincode, total_amount, payment_method, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $email ?: null, $phone, $address, $city ?: null, $pincode ?: null, $total, $method, $paymentStatus]);
+        $stmt = $pdo->prepare("INSERT INTO orders (user_id, buyer_name, buyer_email, buyer_phone, address, city, pincode, total_amount, payment_method, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$loggedInUser['id'] ?? null, $name, $email ?: null, $phone, $address, $city ?: null, $pincode ?: null, $total, $method, $paymentStatus]);
         $orderId = (int) $pdo->lastInsertId();
 
-        $itemStmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, title, price, qty) VALUES (?, ?, ?, ?, ?)");
+        $itemStmt = $pdo->prepare("INSERT INTO order_items (order_id, product_id, vendor_id, title, price, qty, commission_pct, commission_amount, vendor_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         foreach ($items as $it) {
-            $itemStmt->execute([$orderId, $it['product']['id'], $it['product']['title'], $it['product']['price'], $it['qty']]);
+            $prod = $it['product'];
+            $lineTotal = $it['qty'] * (float) $prod['price'];
+            $vendorId = $prod['v_id'] ?? null;
+            $pct = null; $commissionAmt = null; $vendorAmt = null;
+            if ($vendorId) {
+                $vendorRow = ['commission_pct' => $prod['v_commission_pct']];
+                $pct = vendor_commission_pct($vendorRow);
+                $commissionAmt = round($lineTotal * $pct / 100, 2);
+                $vendorAmt = round($lineTotal - $commissionAmt, 2);
+            }
+            $itemStmt->execute([$orderId, $prod['id'], $vendorId, $prod['title'], $prod['price'], $it['qty'], $pct, $commissionAmt, $vendorAmt]);
         }
         $pdo->commit();
 
@@ -102,7 +117,7 @@ include __DIR__ . '/includes/header.php';
       <div class="upi-box">
         <h3>Pay via UPI</h3>
         <p>UPI ID: <strong><?= e($s['upi_id'] ?? 'not configured') ?></strong></p>
-        <?php if (!empty($s['upi_qr_image'])): ?><img src="<?= e($s['upi_qr_image']) ?>" alt="UPI QR code"><?php endif; ?>
+        <?php if (!empty($s['upi_qr_image'])): ?><img src="<?= e(img_url($s['upi_qr_image'])) ?>" alt="UPI QR code"><?php endif; ?>
         <p>Amount: <strong>₹<?= number_format($total, 2) ?></strong></p>
         <p>After paying, upload a screenshot below. We'll verify it and confirm your order.</p>
       </div>
@@ -167,15 +182,15 @@ include __DIR__ . '/includes/header.php';
         <input type="hidden" name="step" value="place">
         <div>
           <label for="buyer_name">Full Name</label>
-          <input id="buyer_name" name="buyer_name" required value="<?= e($_POST['buyer_name'] ?? '') ?>">
+          <input id="buyer_name" name="buyer_name" required value="<?= e($_POST['buyer_name'] ?? $loggedInUser['name'] ?? '') ?>">
         </div>
         <div>
           <label for="buyer_phone">Phone</label>
-          <input id="buyer_phone" name="buyer_phone" required value="<?= e($_POST['buyer_phone'] ?? '') ?>">
+          <input id="buyer_phone" name="buyer_phone" required value="<?= e($_POST['buyer_phone'] ?? $loggedInUser['phone'] ?? '') ?>">
         </div>
         <div>
           <label for="buyer_email">Email (optional, for receipt)</label>
-          <input id="buyer_email" name="buyer_email" type="email" value="<?= e($_POST['buyer_email'] ?? '') ?>">
+          <input id="buyer_email" name="buyer_email" type="email" value="<?= e($_POST['buyer_email'] ?? $loggedInUser['email'] ?? '') ?>">
         </div>
         <div>
           <label for="address">Delivery Address</label>

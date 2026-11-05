@@ -8,6 +8,7 @@ $nav = [
     'contact.php' => 'Contact',
 ];
 $cartQty = cart_count();
+$loggedInUser = current_user();
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -30,6 +31,12 @@ $cartQty = cart_count();
     <?php foreach ($nav as $file => $label): ?>
       <a href="/<?= $file ?>" class="<?= $current === $file ? 'active' : '' ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
+    <?php if ($loggedInUser): ?>
+      <a href="/account.php" class="<?= $current === 'account.php' ? 'active' : '' ?>">My Account</a>
+    <?php else: ?>
+      <a href="/login.php" class="<?= $current === 'login.php' ? 'active' : '' ?>">Login</a>
+      <a href="/vendor/register.php">Sell With Us</a>
+    <?php endif; ?>
     <a href="/cart.php" class="nav-cta">Cart<?= $cartQty > 0 ? ' (' . $cartQty . ')' : '' ?></a>
   </nav>
   <button class="menu-button" id="menuBtn" aria-label="Menu">Menu</button>

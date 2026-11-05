@@ -8,7 +8,7 @@ $tables = [
             'description' => ['label' => 'Description', 'type' => 'textarea'],
             'price' => ['label' => 'Price (₹)', 'type' => 'number', 'required' => true],
             'stock_qty' => ['label' => 'Stock Quantity', 'type' => 'number'],
-            'image' => ['label' => 'Image URL', 'type' => 'text'],
+            'image' => ['label' => 'Product Image', 'type' => 'image'],
             'is_active' => ['label' => 'Active (visible in shop)', 'type' => 'select', 'options' => ['1' => 'Yes', '0' => 'No']],
             'sort_order' => ['label' => 'Sort Order', 'type' => 'number'],
         ],
@@ -35,7 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save'
     $id = (int) ($_POST['id'] ?? 0);
     $cols = [];
     $vals = [];
+    $existingRow = null;
+    if ($id) {
+        $stmt = $pdo->prepare("SELECT * FROM `$table` WHERE id = ?");
+        $stmt->execute([$id]);
+        $existingRow = $stmt->fetch();
+    }
     foreach ($config['fields'] as $key => $field) {
+        if ($field['type'] === 'image') {
+            $cols[] = $key;
+            $vals[] = handle_upload($key, $existingRow[$key] ?? null, 'uploads/products');
+            continue;
+        }
         $val = trim($_POST[$key] ?? '');
         if ($field['type'] === 'number') $val = $val === '' ? 0 : $val;
         $cols[] = $key;
@@ -64,14 +75,18 @@ if (in_array($action, ['add', 'edit'], true)) {
     }
     ?>
     <h2><?= $action === 'edit' ? 'Edit' : 'Add' ?> <?= e($config['label']) ?></h2>
-    <form class="admin-form" method="post">
+    <form class="admin-form" method="post" enctype="multipart/form-data">
       <input type="hidden" name="action" value="save">
       <input type="hidden" name="id" value="<?= (int) ($editRow['id'] ?? 0) ?>">
       <?php foreach ($config['fields'] as $key => $field): ?>
         <div>
           <label for="<?= e($key) ?>"><?= e($field['label']) ?></label>
           <?php $val = $editRow[$key] ?? ($key === 'is_active' ? '1' : ''); ?>
-          <?php if ($field['type'] === 'textarea'): ?>
+          <?php if ($field['type'] === 'image'): ?>
+            <?php if (!empty($val)): ?><div style="margin:.3rem 0"><img src="<?= e(img_url($val)) ?>" alt="" style="max-width:140px;border-radius:6px;display:block"></div><?php endif; ?>
+            <input id="<?= e($key) ?>" name="<?= e($key) ?>" type="file" accept="image/*">
+            <p class="muted" style="margin-top:.3rem"><?= $val ? 'Choose a new file to replace the current image, or leave blank to keep it.' : 'Upload an image file.' ?></p>
+          <?php elseif ($field['type'] === 'textarea'): ?>
             <textarea id="<?= e($key) ?>" name="<?= e($key) ?>" <?= !empty($field['required']) ? 'required' : '' ?>><?= e($val) ?></textarea>
           <?php elseif ($field['type'] === 'select'): ?>
             <select id="<?= e($key) ?>" name="<?= e($key) ?>">

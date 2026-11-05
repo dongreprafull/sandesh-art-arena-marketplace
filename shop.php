@@ -3,15 +3,16 @@ require_once __DIR__ . '/config.php';
 $pageTitle = 'Shop';
 $pdo = db();
 
-$categories = $pdo->query("SELECT DISTINCT category FROM products WHERE is_active = 1 ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+$visibleFilter = "p.is_active = 1 AND (p.vendor_id IS NULL OR v.status = 'approved')";
+$categories = $pdo->query("SELECT DISTINCT p.category FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id WHERE $visibleFilter ORDER BY p.category")->fetchAll(PDO::FETCH_COLUMN);
 $activeCat = $_GET['category'] ?? '';
 
 if ($activeCat !== '' && in_array($activeCat, $categories, true)) {
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE is_active = 1 AND category = ? ORDER BY sort_order DESC, id DESC");
+    $stmt = $pdo->prepare("SELECT p.*, v.business_name FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id WHERE $visibleFilter AND p.category = ? ORDER BY p.sort_order DESC, p.id DESC");
     $stmt->execute([$activeCat]);
 } else {
     $activeCat = '';
-    $stmt = $pdo->query("SELECT * FROM products WHERE is_active = 1 ORDER BY sort_order DESC, id DESC");
+    $stmt = $pdo->query("SELECT p.*, v.business_name FROM products p LEFT JOIN vendors v ON v.id = p.vendor_id WHERE $visibleFilter ORDER BY p.sort_order DESC, p.id DESC");
 }
 $products = $stmt->fetchAll();
 
@@ -33,13 +34,14 @@ include __DIR__ . '/includes/header.php';
     <?php foreach ($products as $p): ?>
       <div class="product-card <?= $p['stock_qty'] <= 0 ? 'out-of-stock' : '' ?>">
         <a href="/product.php?id=<?= (int) $p['id'] ?>">
-          <?php if ($p['image']): ?><img src="<?= e($p['image']) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
+          <?php if ($p['image']): ?><img src="<?= e(img_url($p['image'])) ?>" alt="<?= e($p['title']) ?>"><?php endif; ?>
         </a>
         <div class="product-body">
           <span class="tag"><?= e($p['category']) ?></span>
           <h3><a href="/product.php?id=<?= (int) $p['id'] ?>" style="color:inherit;text-decoration:none"><?= e($p['title']) ?></a></h3>
           <p><?= e(mb_strimwidth($p['description'] ?? '', 0, 80, '…')) ?></p>
           <?php if ($p['stock_qty'] <= 0): ?><p class="stock-note">Out of stock</p><?php endif; ?>
+          <p class="muted" style="font-size:.78rem">Sold by <?= e($p['business_name'] ?? 'Sandesh Art Arena') ?></p>
           <p class="price">₹<?= number_format((float) $p['price'], 2) ?></p>
         </div>
       </div>

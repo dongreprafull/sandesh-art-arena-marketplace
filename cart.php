@@ -58,7 +58,7 @@ include __DIR__ . '/includes/header.php';
       <tbody>
       <?php foreach ($items as $it): $prod = $it['product']; ?>
         <tr>
-          <td><?php if ($prod['image']): ?><img src="<?= e($prod['image']) ?>" alt=""><?php endif; ?></td>
+          <td><?php if ($prod['image']): ?><img src="<?= e(img_url($prod['image'])) ?>" alt=""><?php endif; ?></td>
           <td><a href="/product.php?id=<?= (int) $prod['id'] ?>" style="color:inherit"><?= e($prod['title']) ?></a></td>
           <td>₹<?= number_format((float) $prod['price'], 2) ?></td>
           <td><input type="number" name="qty[<?= (int) $prod['id'] ?>]" form="cart-update-form" value="<?= (int) $it['qty'] ?>" min="1" max="<?= (int) $prod['stock_qty'] ?>"></td>
