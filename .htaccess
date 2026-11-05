@@ -1,0 +1,7 @@
+<Files "config.php">
+  Require all denied
+</Files>
+<Files "schema_marketplace.sql">
+  Require all denied
+</Files>
+Options -Indexes
